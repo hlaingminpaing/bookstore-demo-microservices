@@ -1,269 +1,164 @@
-📚 CloudRead - Microservices Bookstore
+# 📚 CloudRead — Microservices Bookstore
 
-A modern, cloud-native bookstore application built with a microservices architecture. This project demonstrates a full-stack implementation using React, Node.js, and Python, deployed on Kubernetes (EKS) with a GitOps workflow using GitLab CI and ArgoCD.
+A modern **cloud-native bookstore** built using a **microservices architecture**.  
+This project demonstrates a complete end-to-end implementation using **React**, **Node.js**, **Python Flask**, **Docker**, **Kubernetes (EKS)**, and **GitOps** powered by **GitLab CI** + **ArgoCD**.
 
-🚀 Project Overview
+---
 
-CloudRead is designed to simulate a real-world e-commerce platform with separate services for the frontend, backend logic, and product recommendations. It features a robust CI/CD pipeline that includes code quality checks (SonarQube), security scanning (Trivy), and automated deployments.
+## 🚀 Project Overview
 
-Key Features
+**CloudRead** simulates a real-world e-commerce platform with separate microservices for:
 
-🛍️ Customer Portal
+- Frontend (React UI)
+- Backend (Catalog & Order APIs)
+- Recommendation Service (Python microservice)
 
-Google Authentication: Secure sign-in for users.
+It features a full CI/CD workflow including:
 
-Product Catalog: Browse and search for books.
+- SonarQube Code Quality Scanning  
+- Trivy Security Scans  
+- Automated Docker builds  
+- GitOps Deployments with ArgoCD  
 
-Shopping Cart & Wishlist: Persistent local state management.
+---
 
-Checkout: Cash on Delivery (COD) flow with simulated order processing.
+## ⭐ Key Features
 
-Order History: Track past purchases and status.
+### 🛍️ Customer Portal
+- Google Authentication  
+- Book catalog with search  
+- Cart & wishlist with persistent state  
+- Checkout (Cash on Delivery)  
+- Order history  
+- “Book of the Day” AI recommendation  
 
-Smart Recommendations: "Book of the Day" feature powered by a Python microservice.
+### 🛡️ Admin Dashboard
+- Admin login (`admin/password`)  
+- Inventory management (CRUD)  
+- Order management  
+- Real-time stock validation  
 
-🛡️ Admin Dashboard
+---
 
-Secure Login: Dedicated username/password authentication (admin/password).
+## 🏗️ Architecture Overview
 
-Inventory Management: CRUD operations for books with stock tracking.
+CloudRead follows a **Monorepo** structure where each microservice lives inside a single repository but is deployed independently.
 
-Order Management: View all customer orders and shipping details.
+### Tech Stack
 
-Real-time Updates: Stock quantity validation prevents overselling.
+| Component | Technology |
+|----------|------------|
+| Frontend | React, Vite, Tailwind, Firebase Auth, Lucide Icons |
+| Backend | Node.js, Express |
+| ML Service | Python 3.9, Flask |
+| Containerization | Docker |
+| Orchestration | Kubernetes (EKS), Ingress |
+| CI/CD | GitLab CI, ArgoCD |
+| Quality & Security | SonarQube, Trivy |
 
-🏗️ Architecture
+---
 
-The application follows a Monorepo structure where all services reside in a single Git repository but are deployed independently.
+## 🛠️ Getting Started (Local Development)
 
-Frontend: React + Vite + Tailwind CSS (Served via Nginx).
+### Prerequisites
+- Node.js (v18+)
+- Python (v3.9+)
+- Docker
 
-Backend Service: Node.js + Express (Handles Catalog & Orders).
+---
 
-Recommendation Service: Python + Flask (Handles AI/Logic for recommendations).
-
-Database: In-memory storage (simulated for demo purposes).
-
-Infrastructure: Kubernetes (EKS) with Ingress Controller.
-
-Tech Stack
-
-Component
-
-Technology
-
-Frontend
-
-React, Vite, Tailwind CSS, Firebase Auth, Lucide Icons
-
-Backend
-
-Node.js, Express, CORS
-
-ML Service
-
-Python 3.9, Flask
-
-Containerization
-
-Docker, Multi-stage builds
-
-Orchestration
-
-Kubernetes (K8s), Ingress
-
-CI/CD
-
-GitLab CI, ArgoCD
-
-Quality & Security
-
-SonarQube, Trivy
-
-🛠️ Getting Started (Local Development)
-
-Follow these steps to run the entire microservices stack locally.
-
-Prerequisites
-
-Node.js (v18+)
-
-Python (v3.9+)
-
-Docker
-
-1. Clone the Repository
-
-git clone [https://gitlab.com/your-username/cloudread.git](https://gitlab.com/your-username/cloudread.git)
+### 1. Clone Repository
+```bash
+git clone https://gitlab.com/your-username/cloudread.git
 cd cloudread
-
-
-2. Start the Node.js Backend
 
 cd backend
 npm install
 node server.js
-# Server runs on http://localhost:3001
-
-
-3. Start the Python Recommendation Service
-
-Open a new terminal:
 
 cd recommendation-service
 python3 -m venv venv
-source venv/bin/activate   # On Windows: venv\Scripts\activate
+source venv/bin/activate   # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 python app.py
-# Service runs on http://localhost:5000
 
-
-4. Start the Frontend
-
-Open a third terminal. Ensure your vite.config.js has the proxy settings enabled for local development.
 
 cd frontend
 npm install
 npm run dev
-# App runs on http://localhost:5173
+```
+
+## 🎡 CI/CD Pipeline & GitOps Flow
+
+### 🔐 Required GitLab CI Variables
+
+Go to **Settings → CI/CD → Variables** and add the following:
+
+| Variable          | Description                                 | Type      | Protected |
+|-------------------|---------------------------------------------|-----------|-----------|
+| `DOCKER_USERNAME` | Docker Hub username                         | Variable  | No        |
+| `DOCKER_PASSWORD` | Docker Hub access token                     | Variable  | Yes       |
+| `SONAR_HOST_URL`  | SonarQube server URL                        | Variable  | No        |
+| `SONAR_TOKEN`     | SonarQube authentication token              | Variable  | Yes       |
+| `CI_PUSH_TOKEN`   | GitLab Project Access Token (write access)  | Variable  | Yes       |
 
 
-Visit http://localhost:5173 to see the app!
+## 🎡 CI Pipeline Workflow
 
-Admin Credentials:
+| Stage             | Description                      |
+|-------------------|----------------------------------|
+| **Test**          | SonarQube scan                   |
+| **Build**         | Build Docker image               |
+| **Scan**          | Trivy vulnerability scan         |
+| **Push**          | Push image with commit SHA       |
+| **Update Manifests** | Update image tag in YAML      |
+| **Deploy (GitOps)** | ArgoCD syncs the cluster       |
 
-Username: admin
+---
 
-Password: password
+## 📂 Project Structure
 
-🎡 CI/CD Pipeline & GitOps
-
-This project uses a sophisticated GitOps workflow to ensure stability and security.
-
-🔐 CI/CD Configuration (Required Secrets)
-
-To run the pipeline successfully, go to Settings > CI/CD > Variables in GitLab and add the following:
-
-Variable Key
-
-Value Description
-
-Type
-
-Protected?
-
-DOCKER_USERNAME
-
-Your Docker Hub username.
-
-Variable
-
-No
-
-DOCKER_PASSWORD
-
-Your Docker Hub Access Token.
-
-Variable
-
-Yes
-
-SONAR_HOST_URL
-
-URL of your SonarQube server.
-
-Variable
-
-No
-
-SONAR_TOKEN
-
-Authentication token from SonarQube.
-
-Variable
-
-Yes
-
-CI_PUSH_TOKEN
-
-Project Access Token with write_repository scope (allows the pipeline to push tag updates back to Git).
-
-Variable
-
-Yes
-
-Continuous Integration (GitLab CI)
-
-The pipeline is triggered on push and performs the following based on path changes:
-
-Test: Runs SonarQube analysis to check for code smells and bugs.
-
-Build: Creates Docker images for the specific service that changed (frontend, backend, or recommendation-service).
-
-Scan: Uses Trivy to scan the Docker image for vulnerabilities (CVEs).
-
-Push: Pushes the safe image to Docker Hub with the commit SHA tag.
-
-Continuous Deployment (ArgoCD)
-
-Update Manifests: The CI pipeline automatically updates the Kubernetes YAML files in the k8s/ folder with the new image tag.
-
-Sync: ArgoCD detects the change in the Git repository and automatically synchronizes the Kubernetes cluster to match the new state.
-
-📂 Project Structure
-
+```text
 cloudread/
-├── frontend/                # React Application
+├── frontend/                   # React application
 │   ├── src/
-│   ├── Dockerfile           # Nginx build
-│   └── vite.config.js       # Proxy config
-├── backend/                 # Node.js API
+│   ├── Dockerfile
+│   └── vite.config.js
+├── backend/                    # Node.js API
 │   ├── server.js
 │   └── Dockerfile
-├── recommendation-service/  # Python Flask API
+├── recommendation-service/     # Python Flask API
 │   ├── app.py
 │   └── Dockerfile
-├── k8s/                     # Kubernetes Manifests
+├── k8s/                        # Kubernetes manifests
 │   ├── backend.yaml
 │   ├── frontend.yaml
 │   ├── recommendation.yaml
 │   └── ingress.yaml
-├── .gitlab-ci.yml           # CI/CD Configuration
-└── sonar-project.properties # Code Quality Config
+├── .gitlab-ci.yml              # CI/CD pipeline
+└── sonar-project.properties    # SonarQube config
+```
 
 
-🔗 API Reference
+---
 
-Backend (Node.js) - Port 3001
+## 🔗 API Reference
 
-GET /api/books - List all books
+### **Backend (Node.js) – Port 3001**
 
-POST /api/books - Add a book (Admin)
+| Method | Endpoint            | Description         |
+|--------|----------------------|---------------------|
+| GET    | `/api/books`         | List all books      |
+| POST   | `/api/books`         | Add book (Admin)    |
+| PUT    | `/api/books/:id`     | Update book (Admin) |
+| DELETE | `/api/books/:id`     | Delete book         |
+| GET    | `/api/orders`        | List orders         |
+| POST   | `/api/orders`        | Place order         |
 
-PUT /api/books/:id - Update a book (Admin)
+---
 
-DELETE /api/books/:id - Remove a book (Admin)
+### **Recommendation Service (Python) – Port 5000**
 
-GET /api/orders - List orders
-
-POST /api/orders - Place a new order
-
-Recommendation Service (Python) - Port 5000
-
-GET /api/recommendations - Get a random recommended book
-
-🤝 Contributing
-
-Fork the repository.
-
-Create a feature branch (git checkout -b feature/amazing-feature).
-
-Commit your changes (git commit -m 'Add some amazing feature').
-
-Push to the branch (git push origin feature/amazing-feature).
-
-Open a Merge Request.
-
-📄 License
-
-Distributed under the MIT License. See LICENSE for more information.
+| Method | Endpoint                | Description                         |
+|--------|--------------------------|-------------------------------------|
+| GET    | `/api/recommendations`   | Returns a random book recommendation |
