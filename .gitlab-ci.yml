@@ -1,0 +1,181 @@
+stages:
+  - test            # SonarQube
+  - build           # Docker Build & Push
+  - scan            # Trivy Image Scan
+  - update-manifests # GitOps (for ArgoCD)
+
+variables:
+  # Docker Hub Config
+  DOCKER_REGISTRY: docker.io
+  # Disable full clone for speed, fetch latest commit
+  GIT_STRATEGY: fetch
+
+# --- TEMPLATES ---
+
+.build_template:
+  stage: build
+  image: docker:24.0.5
+  services:
+    - docker:24.0.5-dind
+  before_script:
+    - docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD
+  script:
+    - echo "Building $SERVICE_NAME..."
+    - cd $SERVICE_PATH
+    # Build with Commit SHA tag and Latest
+    - docker build -t $DOCKER_USERNAME/$SERVICE_NAME:$CI_COMMIT_SHA -t $DOCKER_USERNAME/$SERVICE_NAME:latest .
+    - docker push $DOCKER_USERNAME/$SERVICE_NAME:$CI_COMMIT_SHA
+    - docker push $DOCKER_USERNAME/$SERVICE_NAME:latest
+
+.trivy_scan_template:
+  stage: scan
+  image: 
+    name: aquasec/trivy:latest
+    entrypoint: [""]
+  script:
+    - trivy image --exit-code 0 --severity LOW,MEDIUM $DOCKER_USERNAME/$SERVICE_NAME:$CI_COMMIT_SHA
+    # Fail pipeline on HIGH/CRITICAL vulnerabilities (Optional: remove --exit-code 1 to just warn)
+    - trivy image --exit-code 1 --severity HIGH,CRITICAL $DOCKER_USERNAME/$SERVICE_NAME:$CI_COMMIT_SHA
+
+# --- 1. SONARQUBE ANALYSIS (Shared) ---
+# This runs on the source code before building containers
+sonarqube-check:
+  stage: test
+  image: 
+    name: sonarsource/sonar-scanner-cli:latest
+    entrypoint: [""]
+  variables:
+    SONAR_USER_HOME: "${CI_PROJECT_DIR}/.sonar"  # Defines the location of the analysis task cache
+    GIT_DEPTH: "0"  # Tells git to fetch all the branches of the project, required by the analysis task
+  cache:
+    key: "${CI_JOB_NAME}"
+    paths:
+      - .sonar/cache
+  script:
+    - sonar-scanner -Dsonar.qualitygate.wait=true
+  allow_failure: true # Set to false if you want to block builds on bad code quality
+  rules:
+    - changes:
+        - frontend/**/*
+        - backend/**/*
+        - recommendation-service/**/*
+
+# --- 2. FRONTEND PIPELINE ---
+
+build-frontend:
+  extends: .build_template
+  variables:
+    SERVICE_NAME: bookstore-frontend
+    SERVICE_PATH: frontend
+  rules:
+    - changes:
+        - frontend/**/*
+        - k8s/frontend.yaml
+
+scan-frontend:
+  extends: .trivy_scan_template
+  variables:
+    SERVICE_NAME: bookstore-frontend
+  needs: ["build-frontend"]
+  rules:
+    - changes:
+        - frontend/**/*
+        - k8s/frontend.yaml
+
+# --- 3. BACKEND PIPELINE ---
+
+build-backend:
+  extends: .build_template
+  variables:
+    SERVICE_NAME: bookstore-backend
+    SERVICE_PATH: backend
+  rules:
+    - changes:
+        - backend/**/*
+        - k8s/backend.yaml
+
+scan-backend:
+  extends: .trivy_scan_template
+  variables:
+    SERVICE_NAME: bookstore-backend
+  needs: ["build-backend"]
+  rules:
+    - changes:
+        - backend/**/*
+        - k8s/backend.yaml
+
+# --- 4. RECOMMENDATION PIPELINE ---
+
+build-recommendation:
+  extends: .build_template
+  variables:
+    SERVICE_NAME: recommendation-service
+    SERVICE_PATH: recommendation-service
+  rules:
+    - changes:
+        - recommendation-service/**/*
+        - k8s/recommendation.yaml
+
+scan-recommendation:
+  extends: .trivy_scan_template
+  variables:
+    SERVICE_NAME: recommendation-service
+  needs: ["build-recommendation"]
+  rules:
+    - changes:
+        - recommendation-service/**/*
+        - k8s/recommendation.yaml
+
+# --- 5. GITOPS UPDATE (For ArgoCD) ---
+# This job updates the image tag in the k8s yaml files and commits it back to the repo.
+# ArgoCD sees the change in the repo and syncs the cluster.
+
+update-manifests:
+  stage: update-manifests
+  image: bitnami/git:latest
+  script:
+    - git config --global user.email "ci-bot@gitlab.com"
+    - git config --global user.name "CI Bot"
+    
+    # Checkout the branch we are working on
+    - git checkout $CI_COMMIT_BRANCH
+    
+    # Update Frontend Manifest if changed
+    - |
+      if [[ $(git diff --name-only HEAD~1 | grep "^frontend/") ]]; then
+        echo "Updating Frontend Manifest..."
+        sed -i "s|image: $DOCKER_USERNAME/bookstore-frontend:.*|image: $DOCKER_USERNAME/bookstore-frontend:$CI_COMMIT_SHA|g" k8s/frontend.yaml
+        git add k8s/frontend.yaml
+      fi
+      
+    # Update Backend Manifest if changed
+    - |
+      if [[ $(git diff --name-only HEAD~1 | grep "^backend/") ]]; then
+        echo "Updating Backend Manifest..."
+        sed -i "s|image: $DOCKER_USERNAME/bookstore-backend:.*|image: $DOCKER_USERNAME/bookstore-backend:$CI_COMMIT_SHA|g" k8s/backend.yaml
+        git add k8s/backend.yaml
+      fi
+
+    # Update Recommendation Manifest if changed
+    - |
+      if [[ $(git diff --name-only HEAD~1 | grep "^recommendation-service/") ]]; then
+        echo "Updating Recommendation Manifest..."
+        sed -i "s|image: $DOCKER_USERNAME/recommendation-service:.*|image: $DOCKER_USERNAME/recommendation-service:$CI_COMMIT_SHA|g" k8s/recommendation.yaml
+        git add k8s/recommendation.yaml
+      fi
+
+    # Commit and Push
+    - |
+      if [[ -n $(git status -s) ]]; then
+        git commit -m "Update image tags [skip ci]"
+        # Use the CI_PUSH_TOKEN to push back to the repo
+        git push https://oauth2:${CI_PUSH_TOKEN}@gitlab.com/${CI_PROJECT_PATH}.git HEAD:$CI_COMMIT_BRANCH
+      else
+        echo "No manifest changes to commit."
+      fi
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      changes:
+        - frontend/**/*
+        - backend/**/*
+        - recommendation-service/**/*

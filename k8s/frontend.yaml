@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bookstore-frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: bookstore-frontend
+  template:
+    metadata:
+      labels:
+        app: bookstore-frontend
+    spec:
+      containers:
+        - name: frontend
+          image: your-docker-username/bookstore-frontend:latest # REPLACE WITH YOUR IMAGE
+          ports:
+            - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-service
+spec:
+  selector:
+    app: bookstore-frontend
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+  type: ClusterIP # Internal only
